@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Howey Test Evaluator — Crypto Assets (SEC 2026)</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f1efe8; color: #1a1a18; min-height: 100vh; padding: 2rem 1rem; }
+
+.wrap { max-width: 760px; margin: 0 auto; }
+
+.topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; }
+.badge { display: inline-block; font-size: 11px; font-weight: 500; padding: 4px 10px; border-radius: 100px; background: #E6F1FB; color: #0C447C; }
+.lang-toggle { display: flex; border: 0.5px solid #b4b2a9; border-radius: 8px; overflow: hidden; }
+.lang-btn { padding: 5px 14px; font-size: 12px; font-weight: 500; cursor: pointer; background: #fff; color: #888780; border: none; transition: all 0.15s; font-family: inherit; }
+.lang-btn.active { background: #1a1a18; color: #fff; }
+
+.card { background: #fff; border-radius: 16px; border: 0.5px solid #d3d1c7; padding: 2rem 2.25rem; margin-bottom: 1rem; }
+
+.header h1 { font-size: 21px; font-weight: 500; color: #1a1a18; margin-bottom: 6px; }
+.header p { font-size: 13px; color: #5f5e5a; line-height: 1.6; }
+
+.section-label { font-size: 11px; font-weight: 500; color: #888780; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; margin-top: 1.25rem; }
+.section-label:first-child { margin-top: 0; }
+
+.project-input { width: 100%; padding: 10px 14px; border: 0.5px solid #d3d1c7; border-radius: 8px; font-size: 14px; color: #1a1a18; background: #fff; outline: none; transition: border-color 0.15s; font-family: inherit; margin-bottom: 0.25rem; }
+.project-input:focus { border-color: #378ADD; }
+.project-input::placeholder { color: #b4b2a9; }
+
+.category-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin-bottom: 1.5rem; }
+.cat-btn { background: #f5f5f3; border: 0.5px solid #d3d1c7; border-radius: 8px; padding: 10px 12px; cursor: pointer; text-align: left; transition: all 0.15s; }
+.cat-btn:hover { border-color: #b4b2a9; background: #fff; }
+.cat-btn.active { border: 1.5px solid #378ADD; background: #E6F1FB; }
+.cat-btn.active .cat-name { color: #185FA5; }
+.cat-name { font-size: 13px; font-weight: 500; color: #1a1a18; }
+.cat-desc { font-size: 11px; color: #888780; margin-top: 3px; line-height: 1.4; }
+
+.progress-bar { height: 4px; background: #f1efe8; border-radius: 2px; margin-bottom: 1.5rem; overflow: hidden; }
+.progress-fill { height: 100%; background: #378ADD; border-radius: 2px; transition: width 0.3s; }
+
+.questions { display: flex; flex-direction: column; gap: 10px; margin-bottom: 1.5rem; }
+.q-card { background: #fff; border: 0.5px solid #d3d1c7; border-radius: 8px; padding: 13px 15px; }
+.q-meta { font-size: 11px; color: #b4b2a9; font-weight: 500; margin-bottom: 4px; }
+.q-text { font-size: 13px; color: #1a1a18; margin-bottom: 7px; line-height: 1.55; font-weight: 500; }
+.q-note { font-size: 11px; color: #888780; margin-bottom: 10px; line-height: 1.5; }
+.radio-row { display: flex; gap: 8px; }
+.radio-btn { flex: 1; padding: 6px 10px; border: 0.5px solid #d3d1c7; border-radius: 8px; cursor: pointer; font-size: 12px; text-align: center; color: #888780; background: #f5f5f3; transition: all 0.1s; user-select: none; }
+.radio-btn:hover { border-color: #b4b2a9; }
+.radio-btn.sel-yes { background: #FCEBEB; border-color: #E24B4A; color: #791F1F; font-weight: 500; }
+.radio-btn.sel-no { background: #EAF3DE; border-color: #639922; color: #27500A; font-weight: 500; }
+.radio-btn.sel-unsure { background: #FAEEDA; border-color: #BA7517; color: #633806; font-weight: 500; }
+
+.eval-btn { width: 100%; padding: 12px; background: #1a1a18; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; color: #fff; transition: background 0.15s; font-family: inherit; }
+.eval-btn:hover { background: #2c2c2a; }
+
+.result { display: none; border-radius: 12px; padding: 18px 20px; }
+.result.show { display: block; }
+.result-security { background: #FCEBEB; border: 1px solid #F09595; }
+.result-likely { background: #FAEEDA; border: 1px solid #FAC775; }
+.result-nonsecurity { background: #EAF3DE; border: 1px solid #C0DD97; }
+
+.result-label { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 5px; }
+.result-security .result-label { color: #791F1F; }
+.result-likely .result-label { color: #633806; }
+.result-nonsecurity .result-label { color: #27500A; }
+
+.result-title { font-size: 17px; font-weight: 500; margin-bottom: 8px; color: #1a1a18; }
+.result-body { font-size: 13px; color: #5f5e5a; line-height: 1.65; }
+
+.factors { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.factor { font-size: 12px; padding: 6px 10px; border-radius: 6px; line-height: 1.4; }
+.factor-red { background: #F7C1C1; color: #501313; }
+.factor-yellow { background: #FAC775; color: #412402; }
+.factor-green { background: #C0DD97; color: #173404; }
+
+.action-row { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+.action-btn { padding: 8px 14px; border: 0.5px solid #b4b2a9; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 500; color: #5f5e5a; background: #fff; transition: all 0.15s; font-family: inherit; }
+.action-btn:hover { background: #f5f5f3; border-color: #888780; }
+.action-btn.primary { background: #1a1a18; color: #fff; border-color: #1a1a18; }
+.action-btn.primary:hover { background: #2c2c2a; }
+
+.disclaimer { font-size: 11px; color: #b4b2a9; line-height: 1.6; text-align: center; padding-top: 0.5rem; }
+
+.result-card { background: #fff; border-radius: 16px; border: 0.5px solid #d3d1c7; padding: 2rem 2.25rem; margin-bottom: 1rem; display: none; }
+.result-card.show { display: block; }
+
+.print-header { display: none; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid #d3d1c7; }
+.print-header h2 { font-size: 18px; font-weight: 500; margin-bottom: 4px; }
+.print-header p { font-size: 12px; color: #888780; }
+
+@media (max-width: 580px) {
+  .card, .result-card { padding: 1.5rem 1.25rem; }
+  .category-grid { grid-template-columns: 1fr 1fr; }
+  .topbar { flex-direction: column; align-items: flex-start; gap: 10px; }
+}
+
+@media print {
+  body { background: #fff; padding: 0; }
+  .wrap { max-width: 100%; }
+  .topbar, .card:not(.result-card), .action-row, .disclaimer { display: none !important; }
+  .result-card { display: block !important; border: none; box-shadow: none; padding: 0; }
+  .print-header { display: block !important; }
+  .result { border: 1px solid #ccc !important; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <span class="badge">SEC Release 33-11412 · March 17, 2026</span>
+    <div class="lang-toggle">
+      <button class="lang-btn active" onclick="setLang('es')" id="btn-es">ES</button>
+      <button class="lang-btn" onclick="setLang('en')" id="btn-en">EN</button>
+    </div>
+  </div>
+
+  <div class="card" id="header-card">
+    <div class="header">
+      <h1 id="t-title"></h1>
+      <p id="t-subtitle"></p>
+    </div>
+  </div>
+
+  <div class="card" id="form-card">
+    <div class="section-label" id="t-step1-label"></div>
+    <input class="project-input" type="text" id="project-name" />
+
+    <div class="section-label" id="t-step2-label"></div>
+    <p id="t-step2-desc" style="font-size:13px;color:#5f5e5a;margin-bottom:10px;line-height:1.5;"></p>
+    <div class="category-grid" id="cat-grid"></div>
+
+    <div class="progress-bar"><div class="progress-fill" id="progress" style="width:0%"></div></div>
+
+    <div class="section-label" id="t-step3-label"></div>
+    <div class="questions" id="questions-container"></div>
+
+    <button class="eval-btn" id="eval-btn" onclick="evaluate()"></button>
+  </div>
+
+  <div class="result-card" id="result-card">
+    <div class="print-header">
+      <h2 id="print-title"></h2>
+      <p id="print-meta"></p>
+    </div>
+    <div class="result" id="result-box">
+      <div class="result-label" id="result-label"></div>
+      <div class="result-title" id="result-title"></div>
+      <div class="result-body" id="result-body"></div>
+      <div class="factors" id="result-factors"></div>
+    </div>
+    <div class="action-row">
+      <button class="action-btn" onclick="resetForm()" id="btn-reset"></button>
+      <button class="action-btn primary" onclick="exportPDF()" id="btn-pdf"></button>
+    </div>
+  </div>
+
+  <p class="disclaimer" id="t-disclaimer"></p>
+</div>
+
+<script>
+const T = {
+  es: {
+    title: 'Evaluador Howey Test — Crypto Assets',
+    subtitle: 'Basado en el nuevo framework interpretativo de la SEC y CFTC (Release 33-11412, 17 marzo 2026) para determinar si un crypto asset es un security bajo la ley federal de valores de EE.UU.',
+    step1: '1. Nombre del proyecto', step1ph: 'Ej: MyToken, ProjectXYZ...',
+    step2: '2. Categoría del token',
+    step2desc: 'Según el documento SEC, los crypto assets se clasifican en 5 categorías. Elegí la que mejor describe tu proyecto:',
+    step3: '3. Preguntas Howey Test',
+    evalBtn: 'Evaluar →', resetBtn: '← Evaluar otro token', pdfBtn: 'Exportar PDF',
+    disclaimer: 'Este evaluador es orientativo y no constituye asesoramiento legal. Para decisiones de compliance, consultar a un abogado especializado en securities law.',
+    prong: 'Howey Prong', criteria: 'Criterio SEC 2026',
+    yes: 'Sí', no: 'No', unsure: 'No sé',
+    printMeta: 'Evaluación Howey Test (SEC Release 33-11412) · ',
+    alertCat: 'Por favor seleccioná una categoría primero.',
+    cats: [
+      { id:'commodity',   name:'Digital Commodity',  desc:'BTC, ETH, SOL — ligado a un sistema funcional' },
+      { id:'collectible', name:'Digital Collectible', desc:'NFTs, meme coins, arte, trading cards' },
+      { id:'tool',        name:'Digital Tool',        desc:'Membresías, credenciales, tickets, badges' },
+      { id:'stablecoin',  name:'Stablecoin',          desc:'Valor estable vinculado a activo de referencia' },
+      { id:'security',    name:'Digital Security',    desc:'Token que representa un instrumento financiero' },
+    ],
+    questions: [
+      { id:'investment_money',   howey:1, text:'¿Los compradores invierten dinero u otro valor para obtener este asset?', note:'Howey prong 1: "investment of money". Airdrops gratuitos sin contraprestación NO cumplen este elemento.' },
+      { id:'common_enterprise',  howey:2, text:'¿Los fondos de los inversores se agrupan o sus retornos están entrelazados con los de otros inversores?', note:'Howey prong 2: "common enterprise". Incluye horizontal commonality (fondo compartido) y vertical commonality (éxito ligado al promotor).' },
+      { id:'profit_expectation', howey:3, text:'¿Los compradores tienen una expectativa razonable de obtener ganancias de este asset?', note:'Howey prong 3 (parte A): La expectativa debe ser razonable dado el marketing, whitepapers y comunicaciones del emisor.' },
+      { id:'efforts_of_others',  howey:3, text:'¿Esas ganancias esperadas dependen principalmente de los esfuerzos esenciales de gestión del emisor o de terceros?', note:'Howey prong 3 (parte B): Esfuerzos "ministeriales o administrativos" NO califican. Deben ser esfuerzos gerenciales esenciales que determinen el éxito o fracaso del proyecto.' },
+      { id:'issuer_promises',    howey:3, text:'¿El emisor hizo representaciones o promesas explícitas de desarrollar funcionalidad, alcanzar milestones o generar valor?', note:'Nuevo énfasis SEC 2026: las promesas del emisor (whitepaper, sitio oficial, SAFT, ICO) son clave para crear expectativas razonables de ganancia.' },
+      { id:'functional_system',  howey:0, text:'¿El token ya opera en un sistema funcional y descentralizado donde ninguna entidad tiene control operativo, económico o de voto?', note:'Criterio SEC 2026: si el sistema es "functional" y "decentralized", el asset tiende a ser Digital Commodity. La descentralización real puede separar al token de un investment contract.' },
+      { id:'secondary_promises', howey:0, text:'¿En el mercado secundario, los compradores aún asocian razonablemente las promesas del emisor a este token?', note:'Nuevo criterio SEC 2026: un token inicialmente sujeto a investment contract puede separarse si el emisor cumplió sus promesas o las abandonó públicamente.' },
+      { id:'passive_yield',      howey:0, text:'¿El token genera rendimiento pasivo, derechos a ingresos futuros, o beneficios económicos intrínsecos más allá del staking estándar?', note:'Digital commodities y collectibles NO tienen propiedades económicas intrínsecas como yield pasivo. Si las tiene, señala fuertemente hacia security.' },
+    ],
+    results: {
+      security_direct: { lbl:'Clasificación directa',            title:'Digital Security — sujeto a regulación',          body:'Seleccionaste "Digital Security" como categoría. Según la SEC, cualquier instrumento financiero enumerado en la definición de "security" que se represente como crypto asset es un security, independientemente del formato. Requiere registro o exención bajo la Securities Act.' },
+      stablecoin:      { lbl:'Análisis específico requerido',    title:'Stablecoin — depende del tipo',                   body:'Los payment stablecoins emitidos por un "permitted payment stablecoin issuer" bajo la GENIUS Act (vigente desde julio 2025) están excluidos de la definición de security por ley. Otros stablecoins pueden o no ser securities según sus características particulares.' },
+      airdrop:         { lbl:'Howey test — no cumplido',         title:'No es un security (airdrop / sin inversión)',      body:'El primer elemento del Howey test no se cumple: no hay inversión de dinero. Según la interpretación SEC 2026, airdrops donde el receptor no provee contraprestación no constituyen investment contracts y no requieren registro bajo la Securities Act.' },
+      high:            { lbl:'Alto riesgo — Howey test cumplido',title:'Probable security / investment contract',         body:'El análisis indica que este token tiene alta probabilidad de clasificar como investment contract bajo el Howey test según el framework SEC 2026. Las ofertas y ventas probablemente deban registrarse bajo la Securities Act o conducirse bajo una exención disponible.' },
+      medium:          { lbl:'Zona gris — análisis necesario',   title:'Riesgo moderado de clasificar como security',     body:'El token presenta características mixtas. La SEC 2026 enfatiza que el análisis debe considerar el contexto completo: representaciones del emisor, funcionalidad del sistema, y expectativas razonables de los compradores.' },
+      low:             { lbl:'Howey test — bajo riesgo',         title:'Probable non-security crypto asset',              body:'El análisis sugiere que este token probablemente no califique como security bajo el Howey test conforme al framework SEC 2026. Recordá que un non-security crypto asset puede igualmente estar sujeto a un investment contract si el emisor realizó promesas de esfuerzos esenciales de gestión.' },
+    },
+    factors: {
+      inv_no:   'Prong 1 NO cumplido: sin inversión de dinero → no hay investment contract',
+      inv_yes:  'Prong 1 cumplido: hay inversión de dinero u otro valor',
+      ent_yes:  'Prong 2 cumplido: enterprise común detectado',
+      ent_no:   'Prong 2 NO cumplido: sin enterprise común',
+      profit:   'Expectativa de ganancia presente',
+      eff_yes:  'Prong 3 cumplido: ganancias dependen de esfuerzos esenciales del emisor',
+      eff_no:   'Prong 3 NO cumplido: no hay dependencia de esfuerzos gerenciales esenciales',
+      prom_yes: 'Representaciones/promesas del emisor → crean expectativas razonables de ganancia (criterio SEC 2026)',
+      prom_no:  'Sin promesas explícitas del emisor → reduce riesgo de investment contract',
+      func_yes: 'Sistema funcional y descentralizado → señala hacia Digital Commodity (criterio SEC 2026)',
+      func_no:  'Sistema no funcional o no descentralizado → mayor riesgo de security',
+      sec_yes:  'Compradores secundarios aún asocian promesas del emisor → investment contract puede seguir vigente',
+      sec_no:   'Promesas separadas del token en mercado secundario → posible separación del investment contract',
+      yld_yes:  'Yield pasivo o derechos económicos intrínsecos → característica de security',
+      yld_no:   'Sin yield pasivo ni derechos económicos intrínsecos → consistente con non-security',
+    }
+  },
+  en: {
+    title: 'Howey Test Evaluator — Crypto Assets',
+    subtitle: 'Based on the new SEC and CFTC interpretive framework (Release 33-11412, March 17, 2026) to determine whether a crypto asset qualifies as a security under U.S. federal securities law.',
+    step1: '1. Project name', step1ph: 'E.g. MyToken, ProjectXYZ...',
+    step2: '2. Token category',
+    step2desc: 'Under the SEC document, crypto assets are classified into 5 categories. Select the one that best describes your project:',
+    step3: '3. Howey Test questions',
+    evalBtn: 'Evaluate →', resetBtn: '← Evaluate another token', pdfBtn: 'Export PDF',
+    disclaimer: 'This evaluator is for guidance only and does not constitute legal advice. For compliance decisions, consult a securities law attorney.',
+    prong: 'Howey Prong', criteria: 'SEC 2026 Criterion',
+    yes: 'Yes', no: 'No', unsure: 'Unsure',
+    printMeta: 'Howey Test Assessment (SEC Release 33-11412) · ',
+    alertCat: 'Please select a category first.',
+    cats: [
+      { id:'commodity',   name:'Digital Commodity',  desc:'BTC, ETH, SOL — tied to a functional system' },
+      { id:'collectible', name:'Digital Collectible', desc:'NFTs, meme coins, art, trading cards' },
+      { id:'tool',        name:'Digital Tool',        desc:'Memberships, credentials, tickets, badges' },
+      { id:'stablecoin',  name:'Stablecoin',          desc:'Stable value tied to a reference asset' },
+      { id:'security',    name:'Digital Security',    desc:'Token representing a financial instrument' },
+    ],
+    questions: [
+      { id:'investment_money',   howey:1, text:'Do buyers invest money or other value to obtain this asset?', note:'Howey prong 1: "investment of money". Free airdrops with no consideration do NOT satisfy this element.' },
+      { id:'common_enterprise',  howey:2, text:'Are investor funds pooled together, or are returns tied to those of other investors?', note:'Howey prong 2: "common enterprise". Includes horizontal commonality (shared fund) and vertical commonality (success tied to the promoter).' },
+      { id:'profit_expectation', howey:3, text:'Do buyers have a reasonable expectation of profits from this asset?', note:'Howey prong 3 (part A): The expectation must be reasonable given the issuer\'s marketing, whitepapers, and communications.' },
+      { id:'efforts_of_others',  howey:3, text:'Do those expected profits depend primarily on the essential managerial efforts of the issuer or third parties?', note:'Howey prong 3 (part B): "Ministerial or administrative" efforts do NOT qualify. They must be essential managerial efforts that determine the project\'s success or failure.' },
+      { id:'issuer_promises',    howey:3, text:'Has the issuer made explicit representations or promises to develop functionality, achieve milestones, or generate value?', note:'New SEC 2026 emphasis: issuer promises (whitepaper, official website, SAFT, ICO) are key to creating reasonable profit expectations.' },
+      { id:'functional_system',  howey:0, text:'Does the token already operate on a functional and decentralized system where no entity has operational, economic, or voting control?', note:'SEC 2026 criterion: if the system is "functional" and "decentralized", the asset tends toward Digital Commodity status. Real decentralization can sever the token from an investment contract.' },
+      { id:'secondary_promises', howey:0, text:'In secondary markets, do buyers still reasonably associate the issuer\'s promises with this token?', note:'New SEC 2026 criterion: a token initially subject to an investment contract can separate from it if the issuer fulfilled or publicly abandoned its promises.' },
+      { id:'passive_yield',      howey:0, text:'Does the token generate passive yield, rights to future income, or intrinsic economic benefits beyond standard protocol staking?', note:'Digital commodities and collectibles do NOT have intrinsic economic properties like passive yield. If they do, it strongly signals a security.' },
+    ],
+    results: {
+      security_direct: { lbl:'Direct classification',          title:'Digital Security — subject to regulation',       body:'You selected "Digital Security" as the category. Under the SEC, any financial instrument listed in the definition of "security" that is represented as a crypto asset is a security, regardless of format. It requires registration or an exemption under the Securities Act.' },
+      stablecoin:      { lbl:'Specific analysis required',     title:'Stablecoin — depends on type',                  body:'Payment stablecoins issued by a "permitted payment stablecoin issuer" under the GENIUS Act (effective July 2025) are excluded from the definition of security by statute. Other stablecoins may or may not be securities depending on their particular characteristics.' },
+      airdrop:         { lbl:'Howey test — not satisfied',     title:'Not a security (airdrop / no investment)',       body:'The first element of the Howey test is not met: there is no investment of money. Under the SEC 2026 interpretation, airdrops where recipients provide no consideration do not constitute investment contracts and do not require registration under the Securities Act.' },
+      high:            { lbl:'High risk — Howey test satisfied',title:'Likely a security / investment contract',      body:'The analysis indicates this token has a high likelihood of qualifying as an investment contract under the Howey test per the SEC 2026 framework. Offers and sales will likely need to be registered under the Securities Act or conducted under an available exemption.' },
+      medium:          { lbl:'Gray area — detailed analysis needed', title:'Moderate risk of qualifying as a security', body:'The token shows mixed characteristics. The SEC 2026 emphasizes that analysis must consider the full context: issuer representations, system functionality, and reasonable buyer expectations.' },
+      low:             { lbl:'Howey test — low risk',          title:'Likely a non-security crypto asset',            body:'The analysis suggests this token likely does not qualify as a security under the Howey test per the SEC 2026 framework. Note that a non-security crypto asset can still be subject to an investment contract if the issuer made promises of essential managerial efforts.' },
+    },
+    factors: {
+      inv_no:   'Prong 1 NOT satisfied: no investment of money → no investment contract',
+      inv_yes:  'Prong 1 satisfied: investment of money or other value present',
+      ent_yes:  'Prong 2 satisfied: common enterprise detected',
+      ent_no:   'Prong 2 NOT satisfied: no common enterprise',
+      profit:   'Profit expectation present',
+      eff_yes:  'Prong 3 satisfied: profits depend on essential managerial efforts of issuer',
+      eff_no:   'Prong 3 NOT satisfied: no dependence on essential managerial efforts',
+      prom_yes: 'Issuer representations/promises → create reasonable profit expectations (SEC 2026 criterion)',
+      prom_no:  'No explicit issuer promises → reduces investment contract risk',
+      func_yes: 'Functional and decentralized system → points toward Digital Commodity (SEC 2026)',
+      func_no:  'System not functional or not decentralized → higher security risk',
+      sec_yes:  'Secondary market buyers still associate issuer promises with token → investment contract may persist',
+      sec_no:   'Promises separated from token in secondary market → possible investment contract severance',
+      yld_yes:  'Passive yield or intrinsic economic rights → characteristic of a security',
+      yld_no:   'No passive yield or intrinsic economic rights → consistent with non-security',
+    }
+  }
+};
+
+let lang = 'es';
+let answers = {};
+let selectedCat = null;
+let lastResult = null;
+
+function setLang(l) {
+  lang = l;
+  document.getElementById('btn-es').classList.toggle('active', l === 'es');
+  document.getElementById('btn-en').classList.toggle('active', l === 'en');
+  document.documentElement.lang = l;
+  render();
+}
+
+function render() {
+  const t = T[lang];
+  document.title = t.title;
+  document.getElementById('t-title').textContent = t.title;
+  document.getElementById('t-subtitle').textContent = t.subtitle;
+  document.getElementById('t-step1-label').textContent = t.step1;
+  document.getElementById('project-name').placeholder = t.step1ph;
+  document.getElementById('t-step2-label').textContent = t.step2;
+  document.getElementById('t-step2-desc').textContent = t.step2desc;
+  document.getElementById('t-step3-label').textContent = t.step3;
+  document.getElementById('eval-btn').textContent = t.evalBtn;
+  document.getElementById('t-disclaimer').textContent = t.disclaimer;
+  document.getElementById('btn-reset').textContent = t.resetBtn;
+  document.getElementById('btn-pdf').textContent = t.pdfBtn;
+  renderCats();
+  renderQuestions();
+  if (lastResult) renderResult(lastResult);
+}
+
+function renderCats() {
+  document.getElementById('cat-grid').innerHTML = T[lang].cats.map(c => `
+    <div class="cat-btn ${selectedCat === c.id ? 'active' : ''}" onclick="selectCat('${c.id}')">
+      <div class="cat-name">${c.name}</div>
+      <div class="cat-desc">${c.desc}</div>
+    </div>`).join('');
+}
+
+function selectCat(cat) {
+  selectedCat = cat;
+  renderCats();
+  updateProgress();
+}
+
+function renderQuestions() {
+  const t = T[lang];
+  document.getElementById('questions-container').innerHTML = t.questions.map((q, i) => `
+    <div class="q-card">
+      <div class="q-meta">Q${i+1} · ${q.howey > 0 ? t.prong + ' ' + q.howey : t.criteria}</div>
+      <div class="q-text">${q.text}</div>
+      <div class="q-note">${q.note}</div>
+      <div class="radio-row">
+        <div class="radio-btn ${answers[q.id]==='yes'?'sel-yes':''}"    onclick="setAnswer('${q.id}','yes')">${t.yes}</div>
+        <div class="radio-btn ${answers[q.id]==='no'?'sel-no':''}"     onclick="setAnswer('${q.id}','no')">${t.no}</div>
+        <div class="radio-btn ${answers[q.id]==='unsure'?'sel-unsure':''}" onclick="setAnswer('${q.id}','unsure')">${t.unsure}</div>
+      </div>
+    </div>`).join('');
+}
+
+function setAnswer(id, val) {
+  answers[id] = val;
+  renderQuestions();
+  updateProgress();
+}
+
+function updateProgress() {
+  const total = T[lang].questions.length + 1;
+  const done = Object.keys(answers).length + (selectedCat ? 1 : 0);
+  document.getElementById('progress').style.width = Math.round((done / total) * 100) + '%';
+}
+
+function evaluate() {
+  if (!selectedCat) { alert(T[lang].alertCat); return; }
+  const t = T[lang];
+  const a = answers;
+  let score = 0;
+  let factors = [];
+  let resultKey = '';
+
+  if (selectedCat === 'security') {
+    resultKey = 'security_direct';
+  } else if (selectedCat === 'stablecoin') {
+    resultKey = 'stablecoin';
+  } else {
+    if (a.investment_money === 'no') {
+      resultKey = 'airdrop';
+      factors.push({ cls:'factor-green', txt: t.factors.inv_no });
+    } else {
+      if (a.investment_money === 'yes')    { score += 2; factors.push({ cls:'factor-red',    txt: t.factors.inv_yes }); }
+      if (a.common_enterprise === 'yes')   { score += 2; factors.push({ cls:'factor-red',    txt: t.factors.ent_yes }); }
+      else if (a.common_enterprise === 'no')             { factors.push({ cls:'factor-green', txt: t.factors.ent_no }); }
+      if (a.profit_expectation === 'yes')  { score += 1; factors.push({ cls:'factor-yellow', txt: t.factors.profit }); }
+      if (a.efforts_of_others === 'yes')   { score += 2; factors.push({ cls:'factor-red',    txt: t.factors.eff_yes }); }
+      else if (a.efforts_of_others === 'no')             { factors.push({ cls:'factor-green', txt: t.factors.eff_no }); }
+      if (a.issuer_promises === 'yes')     { score += 2; factors.push({ cls:'factor-red',    txt: t.factors.prom_yes }); }
+      else if (a.issuer_promises === 'no')               { factors.push({ cls:'factor-green', txt: t.factors.prom_no }); }
+      if (a.functional_system === 'yes')   { score -= 2; factors.push({ cls:'factor-green',  txt: t.factors.func_yes }); }
+      else if (a.functional_system === 'no') { score += 1; factors.push({ cls:'factor-yellow', txt: t.factors.func_no }); }
+      if (a.secondary_promises === 'yes')  { score += 1; factors.push({ cls:'factor-yellow', txt: t.factors.sec_yes }); }
+      else if (a.secondary_promises === 'no')            { factors.push({ cls:'factor-green', txt: t.factors.sec_no }); }
+      if (a.passive_yield === 'yes')       { score += 2; factors.push({ cls:'factor-red',    txt: t.factors.yld_yes }); }
+      else if (a.passive_yield === 'no')                 { factors.push({ cls:'factor-green', txt: t.factors.yld_no }); }
+      resultKey = score >= 6 ? 'high' : score >= 3 ? 'medium' : 'low';
+    }
+  }
+
+  lastResult = { resultKey, factors };
+  document.getElementById('form-card').style.display = 'none';
+  document.getElementById('result-card').classList.add('show');
+  renderResult(lastResult);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function renderResult(r) {
+  const t = T[lang];
+  const res = t.results[r.resultKey];
+  const rb = document.getElementById('result-box');
+  const projectName = document.getElementById('project-name').value.trim();
+
+  rb.className = 'result show';
+  const isHigh = r.resultKey === 'security_direct' || r.resultKey === 'high';
+  const isMid  = r.resultKey === 'stablecoin'      || r.resultKey === 'medium';
+  if (isHigh) rb.classList.add('result-security');
+  else if (isMid) rb.classList.add('result-likely');
+  else rb.classList.add('result-nonsecurity');
+
+  document.getElementById('result-label').textContent = res.lbl;
+  document.getElementById('result-title').textContent = (projectName ? projectName + ' — ' : '') + res.title;
+  document.getElementById('result-body').textContent  = res.body;
+  document.getElementById('result-factors').innerHTML = r.factors.map(f =>
+    `<div class="factor ${f.cls}">${f.txt}</div>`).join('');
+
+  const now = new Date().toLocaleDateString(lang === 'es' ? 'es-AR' : 'en-US', { year:'numeric', month:'long', day:'numeric' });
+  document.getElementById('print-title').textContent = (projectName || 'Token') + ' — Howey Test';
+  document.getElementById('print-meta').textContent  = t.printMeta + now;
+}
+
+function resetForm() {
+  answers = {}; selectedCat = null; lastResult = null;
+  document.getElementById('result-card').classList.remove('show');
+  document.getElementById('form-card').style.display = '';
+  document.getElementById('project-name').value = '';
+  updateProgress();
+  render();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function exportPDF() { window.print(); }
+
+render();
+</script>
+</body>
+</html>
